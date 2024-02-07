@@ -5,14 +5,15 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
+import org.abc.authentication.validation.groups.GetUserChecker;
 import org.abc.product.model.order.Order;
 import org.abc.product.service.order.OrderServiceREST;
 import org.abc.product.service.order.impl2.OrderServiceImpl;
-import org.abc.product.exceptions.MethodNotFoundException;
 
+import org.abc.product.validation.group.AddressChecker;
+import org.abc.product.validation.group.OrderChecker;
+import org.abc.product.validation.group.UserIdChecker;
 import org.hibernate.validator.HibernateValidator;
 import org.hibernate.validator.messageinterpolation.ParameterMessageInterpolator;
 
@@ -24,7 +25,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.GET;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.PATCH;
 
 import java.util.Objects;
@@ -38,6 +38,7 @@ import java.util.Objects;
  * @version 1.0
  */
 @Path("/")
+@Produces(MediaType.APPLICATION_JSON)
 public class OrderControllerREST {
 
     private static OrderControllerREST orderController;
@@ -45,8 +46,7 @@ public class OrderControllerREST {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Validator validator = Validation.byProvider(HibernateValidator.class)
             .configure().messageInterpolator(new ParameterMessageInterpolator()).buildValidatorFactory().getValidator();
-//    private final ExecutableValidator executableValidator = Validation.buildDefaultValidatorFactory()
-//            .getValidator().forExecutables();
+
     /**
      * <p>
      * Default constructor of OrderController class. Kept private to restrict from creating object outside this class.
@@ -75,22 +75,11 @@ public class OrderControllerREST {
      */
     @Path("/getOrders/{userId}")
     @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
     @GET
-    public ObjectNode getOrders(@PathParam("userId") @Positive final int userId,
-                                 @QueryParam("page") @Positive final int page,
-                                 @QueryParam("limit") @Positive final int limit) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-        final Object[] parameterValues = {userId, page, limit};
-//
-//        try {
-//            executableValidator.validateParameters(this, this.getClass()
-//                            .getMethod("getOrders", int.class, int.class, int.class), parameterValues)
-//                    .stream().forEach(violation -> violationsInJson
-//                            .put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new MethodNotFoundException(e.getMessage());
-//        }
+    public ObjectNode getOrders(@PathParam("userId") final int userId,
+                                @QueryParam("page") final int page,
+                                @QueryParam("limit") final int limit) {
+        final ObjectNode violationsInJson = validate(UserIdChecker.class, new Order.OrderBuilder(userId).build());
 
         return violationsInJson.isEmpty()
                 ? objectMapper.valueToTree(ORDER_SERVICE.getOrders(userId, page, limit))
@@ -102,29 +91,18 @@ public class OrderControllerREST {
      * Adds the order of the user.
      * </p>
      *
-     * @param userId Refers the id of the user
      * @param order Refers the {@link Order} to be added.
      */
-    @Path("/add/{userId}")
+    @Path("/add")
     @Consumes(MediaType.APPLICATION_JSON)
     @POST
-    public ObjectNode addOrder(@PathParam("userId")@NotNull final int userId, final Order order) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-        final Object[] parameterValues = {userId, order};
-//
-//        try {
-//            executableValidator.validateParameters(this, this.getClass()
-//                            .getMethod("addOrder", int.class, Order.class), parameterValues)
-//                    .stream().forEach(violation -> violationsInJson
-//                            .put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new MethodNotFoundException(e.getMessage());
-//        }
+    public ObjectNode addOrder(final Order order) {
+        final ObjectNode violationsInJson = validate(OrderChecker.class, order);
 
         if (violationsInJson.isEmpty()) {
-            ORDER_SERVICE.addOrder(userId, order);
+            ORDER_SERVICE.addOrder(order.getUserId(), order);
 
-            return objectMapper.createObjectNode().put("status", "Successfull");
+            return objectMapper.createObjectNode().put("status", "Successful");
         } else {
             return violationsInJson;
         }
@@ -141,15 +119,12 @@ public class OrderControllerREST {
     @Consumes(MediaType.APPLICATION_JSON)
     @PATCH
     public ObjectNode cancelOrder(final Order order) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-
-        validator.validate(order).stream().forEach(violation -> violationsInJson
-                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+        final ObjectNode violationsInJson = validate(OrderChecker.class, order);
 
         if (violationsInJson.isEmpty()) {
             ORDER_SERVICE.cancelOrder(order);
 
-            return objectMapper.createObjectNode().put("status", "Successfull");
+            return objectMapper.createObjectNode().put("status", "Successful");
         } else {
             return violationsInJson;
         }
@@ -163,25 +138,17 @@ public class OrderControllerREST {
      * @param userId Refers the id of the user.
      * @param address Refers the address to be added.
      */
-    @Path("/addAddress/{userId}")
+    @Path("/addAddress/{userId}/{address}")
     @Consumes(MediaType.APPLICATION_JSON)
     @POST
-    public ObjectNode addAddress(@PathParam("userId") @Positive final int userId,
-                                 @FormParam("address") @NotNull final String address) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-        final Object[] parameterValues = {userId, address};
-
-//        try {
-//            executableValidator.validateParameters(this, this.getClass().getMethod("addAddress", int.class, String.class), parameterValues)
-//                    .stream().forEach(violation -> violationsInJson.put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new MethodNotFoundException(e.getMessage());
-//        }
+    public ObjectNode addAddress(@PathParam("userId") final int userId,
+                                 @PathParam("address") final String address) {
+        final ObjectNode violationsInJson = validate(AddressChecker.class, new Order.OrderBuilder(userId).setAddress(address).build());
 
         if (violationsInJson.isEmpty()) {
             ORDER_SERVICE.addAddress(userId, address);
 
-            return objectMapper.createObjectNode().put("status","Successfull");
+            return objectMapper.createObjectNode().put("status","Successful");
         } else {
             return  violationsInJson;
         }
@@ -196,17 +163,30 @@ public class OrderControllerREST {
      * @return the list of all the address.
      */
     @Path("/getAddresses/{userId}")
-    @Produces(MediaType.APPLICATION_JSON)
     @GET
-    public ObjectNode getAllAddresses(@PathParam("userId") @Positive final int userId) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-
-        validator.validate(userId).stream().forEach(violation -> violationsInJson
-                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+    public ObjectNode getAllAddresses(@PathParam("userId") final int userId) {
+        final ObjectNode violationsInJson = validate(GetUserChecker.class, new Order.OrderBuilder(userId).build());
 
         return violationsInJson.isEmpty()
                 ? objectMapper.valueToTree(ORDER_SERVICE.getAllAddresses(userId))
                 : violationsInJson;
+    }
+
+    /**
+     * <p>
+     * Validates the object by the given group and returns object node containing the violations.
+     * </p>
+     * @param clazz Refers the group class.
+     * @param order Refers the {@link Order}.
+     * @return the object node contains the violations.
+     */
+    private ObjectNode validate(final Class clazz, final Order order) {
+        final ObjectNode violationsInJson = objectMapper.createObjectNode();
+
+        validator.validate(order, clazz).forEach(violation -> violationsInJson
+                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+
+        return violationsInJson;
     }
 }
 

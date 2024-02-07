@@ -20,7 +20,7 @@ public class Activator implements BundleActivator {
      * @param context Refers the context of the bundle.
      */
     public void start(final BundleContext context) {
-        System.out.println("Starting the bundle - Validationn ");
+        System.out.println("Starting the bundle - Validation");
     }
 
     /**

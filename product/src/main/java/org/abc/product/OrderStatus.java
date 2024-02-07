@@ -48,7 +48,7 @@ public enum OrderStatus {
      * @param id Refers the id of the enum value.
      * @return the enum value.
      */
-    public static OrderStatus valueOf(int id) {
+    public static OrderStatus valueOf(final int id) {
         return EnumSet.allOf(OrderStatus.class)
                 .stream()
                 .filter(orderStatus -> orderStatus.id == id)

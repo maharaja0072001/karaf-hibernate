@@ -21,10 +21,9 @@ public interface UserDAO {
      *
      * @param emailIdOrMobileNumber Refers the mobile number or email id of the user.
      * @param password Refers the password of the user.
-     * @param query Refers the query to be executed.
      * @return {@link User} if the credentials are correct or null otherwise.
      */
-    User getUser(final String emailIdOrMobileNumber, final String password, final String query);
+    User getUser(final String emailIdOrMobileNumber, final String password);
 
     /**
      * <p>

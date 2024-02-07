@@ -69,7 +69,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUser(final String emailIdOrMobileNumber, final String password) {
-        User user = null;
+        User user;
 
         if (Validator.getInstance().isValidEmail(emailIdOrMobileNumber)) {
             user = USERS.values().stream().filter(existingUser -> existingUser.getEmailId().equals(emailIdOrMobileNumber)).findFirst().orElse(null);

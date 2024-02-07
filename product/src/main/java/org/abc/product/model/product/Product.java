@@ -5,10 +5,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
 import com.fasterxml.jackson.annotation.JsonSubTypes.Type;
 
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
 import org.abc.product.ProductCategory;
+import org.abc.product.validation.group.ProductChecker;
 
 import java.util.Objects;
 
@@ -28,17 +30,24 @@ import java.util.Objects;
         @Type(value = Laptop.class),
         @Type(value = Clothes.class),
 })
+@Entity
+@Table(name = "product")
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "product_category_id", discriminatorType = DiscriminatorType.INTEGER)
 public abstract class Product {
 
-    @Positive(message = "Product id should be positive")
+    @jakarta.persistence.Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    @NotNull(message = "Product category can't be null")
+    @Transient
+    @NotNull(message = "Product category can't be null", groups = ProductChecker.class)
     private final ProductCategory productCategory;
-    @Positive(message = "Price should be positive")
+    @Positive(message = "Price should be positive", groups = ProductChecker.class)
     private float price;
-    @NotNull(message = "Brand name can't be null")
+    @Transient
+    @NotNull(message = "Brand name can't be null", groups = ProductChecker.class)
     private final String brandName;
-    @Positive(message = "Quantity should be positive")
+    @Positive(message = "Quantity should be positive", groups = ProductChecker.class)
     private int quantity;
 
     public Product(final ProductCategory productCategory, final float price,

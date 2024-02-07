@@ -64,7 +64,7 @@
                 <version>4.4.5</version>
                 <extensions>true</extensions>
                 <configuration>
-                    <startLevel>50</startLevel>
+                    <startLevel>80</startLevel>
                     <includeTransitiveDependency>true</includeTransitiveDependency>
                     <enableGeneration>true</enableGeneration>
                 </configuration>

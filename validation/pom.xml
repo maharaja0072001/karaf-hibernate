@@ -7,12 +7,14 @@
         <artifactId>com.flipkart</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
+
     <artifactId>validation</artifactId>
     <packaging>bundle</packaging>
     <name>validation Bundle</name>
     <description>
         validation OSGi bundle project.
     </description>
+
     <build>
         <plugins>
             <plugin>

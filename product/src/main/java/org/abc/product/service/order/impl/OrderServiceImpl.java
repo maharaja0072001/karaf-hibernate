@@ -77,7 +77,7 @@ public class OrderServiceImpl implements OrderService {
      */
     @Override
     public void cancelOrder(final Order order) {
-        order.setOrderStatus(OrderStatus.CANCELLED);
+        order.setOrderStatusId(OrderStatus.CANCELLED.getId());
     }
 
     /**

@@ -1,7 +1,6 @@
 package org.abc.product.dao.order.impl;
 
 import org.abc.product.OrderStatus;
-import org.abc.product.PaymentMode;
 import org.abc.product.ProductCategory;
 import org.abc.authentication.exceptions.UpdateActionFailedException;
 import org.abc.authentication.exceptions.UserNotFoundException;
@@ -12,6 +11,8 @@ import org.abc.product.exceptions.OrderAdditionFailedException;
 import org.abc.product.exceptions.OrderRemovalFailedException;
 import org.abc.product.exceptions.OrderNotFoundException;
 import org.abc.product.model.order.Order;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -33,6 +34,7 @@ public class OrderDAOImpl implements OrderDAO {
 
     private static OrderDAOImpl orderDAO;
     private final Connection connection = DBConnection.getConnection();
+    private static final Logger LOGGER = LogManager.getLogger(OrderDAOImpl.class);
 
     /**
      * <p>
@@ -63,25 +65,22 @@ public class OrderDAOImpl implements OrderDAO {
     @Override
     public void addOrder(final int userId, final Order order) {
         final int productId = order.getProductId();
-        final int quantity = order.getQuantity();
-        final float totalAmount = order.getTotalAmount();
-        final String address = order.getAddress();
-        final int paymentModeId = order.getPaymentMode().getId();
-        final int orderStatusId = order.getOrderStatus().getId();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(String.join(" ",
                 "insert into orders(user_id, product_id, address, payment_mode_id,",
                 "quantity, total_amount, order_status_id) values (?,?,?,?,?,?,?)"))) {
             preparedStatement.setInt(1, userId);
             preparedStatement.setInt(2, productId);
-            preparedStatement.setString(3, address);
-            preparedStatement.setInt(4, paymentModeId);
-            preparedStatement.setInt(5, quantity);
-            preparedStatement.setFloat(6, totalAmount);
-            preparedStatement.setInt(7, orderStatusId);
+            preparedStatement.setString(3, order.getAddress());
+            preparedStatement.setInt(4, order.getPaymentModeId());
+            preparedStatement.setInt(5, order.getQuantity());
+            preparedStatement.setFloat(6, order.getTotalAmount());
+            preparedStatement.setInt(7, order.getOrderStatusId());
             preparedStatement.executeUpdate();
-            updateQuantity(productId, quantity);
+            updateQuantity(productId, order.getQuantity());
+            LOGGER.info(String.format("User id :%d Product Id :%d - Order placed successfully", userId, productId));
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("User id :%d Product Id :%d - Order not placed", userId, productId));
             throw new OrderAdditionFailedException(exception.getMessage());
         }
     }
@@ -120,7 +119,9 @@ public class OrderDAOImpl implements OrderDAO {
             preparedStatement.setInt(2, order.getId());
             preparedStatement.executeUpdate();
             updateQuantity(order.getProductId(), -order.getQuantity());
+            LOGGER.info(String.format("User id :%d Product Id :%d - Order cancelled successfully.", order.getUserId(), order.getProductId()));
         } catch (final SQLException exception) {
+            LOGGER.warn(String.format("User id :%d Product Id :%d - Order can't be cancelled.", order.getUserId(), order.getProductId()));
             throw new OrderRemovalFailedException(exception.getMessage());
         }
     }
@@ -195,11 +196,11 @@ public class OrderDAOImpl implements OrderDAO {
             final int orderId = resultSet.getInt(1);
             final int productId = resultSet.getInt(2);
             String productName = null;
-            final PaymentMode paymentMode = PaymentMode.valueOf(resultSet.getInt(3));
+            final int paymentModeId = resultSet.getInt(3);
             final int quantity = resultSet.getInt(4);
             final float totalAmount = resultSet.getFloat(5);
             final String address = resultSet.getString(6);
-            final OrderStatus orderStatus = OrderStatus.valueOf(resultSet.getInt(7));
+            final int orderStatusId = resultSet.getInt(7);
             final ProductCategory productCategory = ProductCategory.valueOf(resultSet.getInt(8));
 
             if (ProductCategory.MOBILE == productCategory || ProductCategory.LAPTOP == productCategory) {
@@ -217,7 +218,9 @@ public class OrderDAOImpl implements OrderDAO {
                 final String brand = resultSet.getString(15);
                 productName = String.format("%s brand :%s size : %s gender: %s - Rs :%.2f ", clothesType, brand, size, gender, price);
             }
-            final Order order = new Order.OrderBuilder(userId, productId, paymentMode).setId(orderId).setProductName(productName).setTotalAmount(totalAmount).setQuantity(quantity).setAddress(address).setOrderStatus(orderStatus).build();
+            final Order order = new Order.OrderBuilder(userId).setId(orderId)
+                    .setProductName(productName).setTotalAmount(totalAmount).setQuantity(quantity).setAddress(address)
+                    .setOrderStatusId(orderStatusId).setPaymentModeId(paymentModeId).setProductId(productId).build();
 
             orders.add(order);
         }
@@ -268,7 +271,9 @@ public class OrderDAOImpl implements OrderDAO {
             preparedStatement.setInt(1, userId);
             preparedStatement.setString(2, address);
             preparedStatement.executeUpdate();
+            LOGGER.info(String.format("User id :%d - Address added successfully.", userId));
         } catch (final SQLException exception) {
+            LOGGER.warn(String.format("User id :%d - Address not added", userId));
             throw new UpdateActionFailedException(exception.getMessage());
         }
     }

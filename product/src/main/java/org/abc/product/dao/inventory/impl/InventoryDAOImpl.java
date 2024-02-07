@@ -11,6 +11,9 @@ import org.abc.product.model.product.Clothes;
 import org.abc.product.model.product.Laptop;
 import org.abc.product.model.product.Mobile;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -32,22 +35,23 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     private static InventoryDAOImpl inventoryDAO;
     private final Connection connection = DBConnection.getConnection();
+    private static final Logger LOGGER = LogManager.getLogger(InventoryDAOImpl.class);
 
     /**
      * <p>
-     * Default constructor of the InventoryController class. Kept private to restrict from creating object from outside of this class.
+     * Default constructor of the InventoryDAOImpl class. Kept private to restrict from creating object from outside of this class.
      * </p>
      */
     private InventoryDAOImpl() {}
 
     /**
      * <p>
-     * Creates a single object of InventoryController Class and returns it.
+     * Creates a single object of InventoryDAOImpl Class and returns it.
      * </p>
      *
-     * @return returns the single instance of InventoryController Class.
+     * @return returns the single instance of InventoryDAOImpl Class.
      */
-    public static InventoryDAO getInstance() {
+    public static InventoryDAOImpl getInstance() {
         return Objects.isNull(inventoryDAO) ? inventoryDAO = new InventoryDAOImpl() : inventoryDAO;
     }
 
@@ -62,6 +66,7 @@ public class InventoryDAOImpl implements InventoryDAO {
     public void addItem(final List<Product> products) {
         int productId;
         final HashSet<Product> allProducts = new HashSet<>();
+
         allProducts.addAll(getMobileItems());
         allProducts.addAll(getLaptopItems());
         allProducts.addAll(getClothesItems());
@@ -85,7 +90,7 @@ public class InventoryDAOImpl implements InventoryDAO {
 
                 throw new ItemAdditionFailedException(exception.getMessage());
             }
-            String query = switch (product.getProductCategory()) {
+            final String query = switch (product.getProductCategory()) {
                 case MOBILE, LAPTOP -> "insert into electronics_inventory(product_id, brand, model) values(?, ?, ?)";
                 case CLOTHES -> "insert into clothes_inventory(product_id, brand, clothes_type, gender, size) values(?, ?, ?, ?, ?)";
             };
@@ -106,6 +111,7 @@ public class InventoryDAOImpl implements InventoryDAO {
                 preparedStatement.executeUpdate();
                 allProducts.add(product);
             } catch (final SQLException exception) {
+                LOGGER.warn(String.format("Product - %s -Item can't be added to the inventory", product));
                 throw new ItemAdditionFailedException(exception.getMessage());
             }
         }
@@ -124,7 +130,9 @@ public class InventoryDAOImpl implements InventoryDAO {
                 .prepareStatement("delete from product where id = ?")) {
             preparedStatement.setInt(1, productId);
             preparedStatement.executeUpdate();
+            LOGGER.info(String.format("Product Id :%d - Item removed from the inventory", productId));
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("Product Id :%d - Item can't be removed from the inventory", productId));
             throw new ItemRemovalFailedException(exception.getMessage());
         }
     }
@@ -143,7 +151,6 @@ public class InventoryDAOImpl implements InventoryDAO {
             case LAPTOP -> getLaptopItems();
             case CLOTHES -> getClothesItems();
         };
-
     }
 
     /**
@@ -163,17 +170,16 @@ public class InventoryDAOImpl implements InventoryDAO {
             case LAPTOP -> getLaptopItems(page, limit);
             case CLOTHES -> getClothesItems(page, limit);
         };
-
     }
 
     /**
      * <p>
-     * Gets all the products from the mobile inventory and returns it.
+     * Gets all the mobiles from the inventory and returns it.
      * </p>
      *
      * @param page Refers the page number.
      * @param limit Refers the limit of data to show.
-     * @return all the {@link Product} in the mobile inventory.
+     * @return all the {@link Mobile}.
      */
     private List<Mobile> getMobileItems(final int page, final int limit) {
         final int offset = (page - 1) * limit;
@@ -194,7 +200,7 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from the mobile inventory and returns it.
+     * Gets all the mobiles from the inventory and returns it.
      * </p>
      *
      * @return all the {@link Product} in the mobile inventory.
@@ -214,10 +220,10 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from provided Result set and returns it.
+     * Gets all the mobiles from provided Result set and returns it.
      * </p>
      *
-     * @return all the {@link Product} in the mobile inventory.
+     * @return all the {@link Mobile}.
      */
     private List<Mobile> getMobilesFromResultSet(final ResultSet resultSet) throws SQLException {
         final List<Mobile> mobileCollection = new ArrayList<>();
@@ -239,10 +245,10 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from the laptop inventory and returns it.
+     * Gets all the laptops from the inventory and returns it.
      * </p>
      *
-     * @return all the {@link Product} in the laptop inventory.
+     * @return all the {@link Laptop}.
      */
     private List<Laptop> getLaptopItems() {
         try (PreparedStatement preparedStatement = connection
@@ -259,12 +265,12 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from the laptop inventory and returns it.
+     * Gets all the laptops from the inventory and returns it.
      * </p>
      *
      * @param limit Refers the limit of data to show.
      * @param page Refers the page number.
-     * @return all the {@link Product} in the laptop inventory.
+     * @return all the {@link Laptop}.
      */
     private List<Laptop> getLaptopItems(final int page, final int limit) {
         final int offset = (page - 1) * limit;
@@ -289,7 +295,7 @@ public class InventoryDAOImpl implements InventoryDAO {
      * </p>
      *
      * @param resultSet Refers the result set.
-     * @return all the {@link Product} in the clothes inventory.
+     * @return all the {@link Laptop}.
      */
     private List<Laptop> getLaptopsFromResultSet(final ResultSet resultSet) throws SQLException {
         final List<Laptop> laptopCollection = new ArrayList<>();
@@ -311,10 +317,10 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from the clothes inventory and returns it.
+     * Gets all the clothes from the inventory and returns it.
      * </p>
      *
-     * @return all the {@link Product} in the clothes inventory.
+     * @return all the {@link Clothes}.
      */
     private List<Clothes> getClothesItems() {
         try (PreparedStatement preparedStatement = connection
@@ -331,12 +337,12 @@ public class InventoryDAOImpl implements InventoryDAO {
 
     /**
      * <p>
-     * Gets all the products from the clothes inventory and returns it.
+     * Gets all the clothes from the inventory and returns it.
      * </p>
      *
      * @param limit Refers the limit of data to show.
      * @param page Refers the page number.
-     * @return all the {@link Product} in the clothes inventory.
+     * @return all the {@link Clothes} in the clothes inventory.
      */
     private List<Clothes> getClothesItems(final int page, final int limit) {
         final int offset = (page - 1) * limit;
@@ -361,7 +367,7 @@ public class InventoryDAOImpl implements InventoryDAO {
      * </p>
      *
      * @param resultSet Refers the result set.
-     * @return all the {@link Product} in the clothes inventory.
+     * @return all the {@link Clothes}.
      */
     private List<Clothes> getClothesFromResultSet(final ResultSet resultSet) throws SQLException {
         final List<Clothes> clothesCollection = new ArrayList<>();

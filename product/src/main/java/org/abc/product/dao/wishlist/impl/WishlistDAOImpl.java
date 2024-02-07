@@ -10,6 +10,9 @@ import org.abc.product.model.product.Clothes;
 import org.abc.product.model.product.Laptop;
 import org.abc.product.model.product.Mobile;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -28,6 +31,7 @@ public class WishlistDAOImpl implements WishlistDAO {
 
     private static WishlistDAOImpl wishlistDAO;
     private final Connection connection = DBConnection.getConnection();
+    private static final Logger LOGGER = LogManager.getLogger(WishlistDAOImpl.class);
 
     /**
      * <p>
@@ -66,6 +70,8 @@ public class WishlistDAOImpl implements WishlistDAO {
 
             return  updatedRows > 0;
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item is already in the wishlist", userId, productId));
+
             return false;
         }
     }
@@ -85,7 +91,9 @@ public class WishlistDAOImpl implements WishlistDAO {
             preparedStatement.setInt(1, userId);
             preparedStatement.setInt(2, productId);
             preparedStatement.executeUpdate();
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item removed from the wishlist", userId, productId));
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item can't be removed from the wishlist", userId, productId));
             throw new ItemRemovalFailedException(exception.getMessage());
         }
     }

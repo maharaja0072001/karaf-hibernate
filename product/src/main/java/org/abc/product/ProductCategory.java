@@ -48,7 +48,7 @@ public enum ProductCategory {
      * @param id Refers the id of the enum value.
      * @return the enum value.
      */
-    public static ProductCategory valueOf(int id) {
+    public static ProductCategory valueOf(final int id) {
     return EnumSet.allOf(ProductCategory.class)
             .stream()
             .filter(productCategory -> productCategory.id == id)

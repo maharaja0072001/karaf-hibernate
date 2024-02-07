@@ -3,8 +3,13 @@ package org.abc.product.model.product;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import jakarta.persistence.DiscriminatorValue;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import org.abc.product.ProductCategory;
+import org.abc.product.validation.group.ClothesChecker;
+import org.abc.product.validation.group.ElectronicProductChecker;
 
 import java.util.Objects;
 
@@ -16,13 +21,15 @@ import java.util.Objects;
  * @author Maharaja S
  * @version 1.0
  */
+@Entity
+@DiscriminatorValue("3")
 public class Clothes extends Product {
 
-    @NotNull(message = "Gender can't be null")
+    @NotNull(message = "Gender can't be null", groups = ClothesChecker.class)
     private final String gender;
-    @NotNull(message = "Size can't be null")
+    @NotNull(message = "Size can't be null", groups = ClothesChecker.class)
     private final String size;
-    @NotNull(message = "Clothes type can't be null")
+    @NotNull(message = "Clothes type can't be null", groups = ClothesChecker.class)
     private final String clothesType;
 
     @JsonCreator
@@ -37,6 +44,17 @@ public class Clothes extends Product {
         this.gender = gender;
         this.size = size;
         this.clothesType = clothesType;
+    }
+
+    public Clothes(final String clothesType, final String brandName, final String gender, final String size,
+                   final double price, final int quantity, final int id) {
+        super(ProductCategory.CLOTHES, (float) price, brandName, quantity);
+
+        this.gender = gender;
+        this.size = size;
+        this.clothesType = clothesType;
+
+        super.setId(id);
     }
 
     public String getClothesType() {

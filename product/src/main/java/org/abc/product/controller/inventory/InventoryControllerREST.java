@@ -1,19 +1,20 @@
 package org.abc.product.controller.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.validation.Valid;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 
 import org.abc.product.ProductCategory;
 import org.abc.product.model.product.Product;
 import org.abc.product.service.inventory.InventoryServiceREST;
 import org.abc.product.service.inventory.impl2.InventoryServiceImpl;
 
+import org.abc.product.validation.group.ClothesChecker;
+import org.abc.product.validation.group.ElectronicProductChecker;
 import org.hibernate.validator.HibernateValidator;
 import org.hibernate.validator.messageinterpolation.ParameterMessageInterpolator;
 
@@ -39,6 +40,7 @@ import java.util.Objects;
  * @version 1.0
  */
 @Path("/")
+@Produces(MediaType.APPLICATION_JSON)
 public class InventoryControllerREST {
 
     private static InventoryControllerREST inventoryController;
@@ -46,8 +48,6 @@ public class InventoryControllerREST {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Validator validator = Validation.byProvider(HibernateValidator.class)
             .configure().messageInterpolator(new ParameterMessageInterpolator()).buildValidatorFactory().getValidator();
-//    private final ExecutableValidator executableValidator = Validation.buildDefaultValidatorFactory()
-//            .getValidator().forExecutables();
 
     /**
      * <p>
@@ -77,19 +77,22 @@ public class InventoryControllerREST {
     @Path("/add")
     @Consumes(MediaType.APPLICATION_JSON)
     @POST
-    public ObjectNode addItemToInventory(@Valid final List<Product> products) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
+    public ArrayNode addItemToInventory(@Valid final List<Product> products) {
+        final ArrayNode violationsInJson = objectMapper.createArrayNode();
 
-        validator.validate(products).forEach(violation -> violationsInJson
-                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+        for (final Product product : products) {
+           violationsInJson.add(switch (product.getProductCategory()) {
+               case MOBILE, LAPTOP -> validate(ElectronicProductChecker.class, product);
+               case CLOTHES -> validate(ClothesChecker.class, product);
+           });
+        }
 
         if (violationsInJson.isEmpty()) {
             INVENTORY.addItem(products);
-
-            return objectMapper.createObjectNode().put("status","Successfull");
-        } else {
-            return  violationsInJson;
+            violationsInJson.add(objectMapper.createObjectNode().put("status", "Successful"));
         }
+
+        return violationsInJson;
     }
 
     /**
@@ -101,26 +104,11 @@ public class InventoryControllerREST {
      */
     @Path("/remove/{category}/{id}")
     @DELETE
-    public ObjectNode removeItemFromInventory(@PathParam("id") @Positive final int productId,
-                                              @PathParam("category")@NotNull final ProductCategory productCategory) {
-        final Object[] parameterValues = {productId, productCategory};
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
+    public ObjectNode removeItemFromInventory(@PathParam("id") final int productId,
+                                              @PathParam("category") final ProductCategory productCategory) {
+        INVENTORY.removeItem(productId, productCategory);
 
-//        try {
-//            executableValidator.validateParameters(this, this.getClass()
-//                            .getMethod("removeItemFromInventory", int.class, ProductCategory.class), parameterValues).forEach(violation -> violationsInJson
-//                            .put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new RuntimeException();
-//        }
-
-        if (violationsInJson.isEmpty()) {
-            INVENTORY.removeItem(productId, productCategory);
-
-            return objectMapper.createObjectNode().put("status", "Successfull");
-        } else {
-            return violationsInJson;
-        }
+        return objectMapper.createObjectNode().put("status", "Successful");
     }
 
     /**
@@ -131,26 +119,27 @@ public class InventoryControllerREST {
      * @return all the {@link Product} from the inventory.
      */
     @Path("/getByCategory")
-    @Produces(MediaType.APPLICATION_JSON)
     @GET
-    public ObjectNode getItemsByCategory(@QueryParam("category")final ProductCategory productCategory,
-                                         @QueryParam("page")final int page,
-                                         @QueryParam("limit")final int limit) {
-        final Object[] parameterValues = {page, limit, productCategory};
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-//
-//        try {
-//            executableValidator.validateParameters(this, this.getClass()
-//                            .getMethod("getItemsByCategory", ProductCategory.class, int.class, int.class), parameterValues).forEach(violation -> violationsInJson
-//                            .put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new RuntimeException();
-//        }
+    public ObjectNode getItemsByCategory(@QueryParam("category") final ProductCategory productCategory,
+                                         @QueryParam("page") final int page,
+                                         @QueryParam("limit") final int limit) {
+        return objectMapper.valueToTree(INVENTORY.getItemsByCategory(productCategory, page, limit));
+    }
 
-        if (violationsInJson.isEmpty()) {
-            return objectMapper.valueToTree(INVENTORY.getItemsByCategory(productCategory, page, limit));
-        } else {
-            return violationsInJson;
-        }
+    /**
+     * <p>
+     * Validates the object by the given group and returns object node containing the violations.
+     * </p>
+     * @param clazz Refers the group class.
+     * @param product Refers the {@link Product}.
+     * @return the object node contains the violations.
+     */
+    private ObjectNode validate(final Class clazz, final Product product) {
+        final ObjectNode violationsInJson = objectMapper.createObjectNode();
+
+        validator.validate(product, clazz).forEach(violation -> violationsInJson
+                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+
+        return violationsInJson;
     }
 }

@@ -1,10 +1,25 @@
 package org.abc.authentication.model;
 
-import jakarta.validation.constraints.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.Transient;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+
+import org.abc.authentication.validation.annotations.ValidMobileNumber;
+import org.abc.authentication.validation.groups.GetUserChecker;
+import org.abc.authentication.validation.groups.UserCreationChecks;
+import org.abc.authentication.validation.groups.UserLoginChecks;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import static jakarta.persistence.GenerationType.IDENTITY;
 
 /**
  * <p>
@@ -14,20 +29,33 @@ import java.util.Objects;
  * @author Maharaja S
  * @version 1.0
  */
+@Entity(name = "users")
 public class User {
 
-    @NotNull(message = "User name must not be null")
-    @Size(min = 3, message = "Name minimum length should be 3")
+    @NotNull(groups = UserCreationChecks.class)
+    @Pattern(regexp = "^[A-Za-z][A-Za-z\\s]{2,30}$", message = "Name is invalid", groups = UserCreationChecks.class)
+    @Column(length = 30)
     private String name;
-    @NotNull(message = "Email id must not be null")
-    @Email(message = "Email id should be proper")
+    @NotNull(groups = UserCreationChecks.class)
+    @Pattern(regexp = "^[a-zA-Z0-9]+(?:\\.[a-zA-Z0-9]+)*@[A-Za-z0-9]{2,}([.][a-zA-Z0-9]{2,})+$",
+            message = "Email id is invalid", groups = UserLoginChecks.class)
+    @Column(name = "email", length = 60)
     private String emailId;
-    @NotNull(message = "Mobile number must not be null")
+    @NotNull(groups = UserCreationChecks.class)
+    @ValidMobileNumber(groups = UserLoginChecks.class)
+    @Column(name = "mobile_number", length = 15)
     private String mobileNumber;
-    @NotNull(message = "Password must not be null")
-    @Size(min = 8, message = "Password minimun length should be 8")
+    @NotNull(groups = UserCreationChecks.class)
+    @NotNull(groups = UserLoginChecks.class)
+    @Pattern(regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,20}$",
+            message = "Password is invalid", groups = UserLoginChecks.class)
+    @Column(length = 20)
     private String password;
+    @Positive(groups = GetUserChecker.class, message = "User id can't be negative")
+    @Id
+    @GeneratedValue(strategy = IDENTITY)
     private int id;
+    @Transient
     private List<String> addresses;
 
     public void setId(final int id) {
@@ -71,7 +99,7 @@ public class User {
     }
 
     public void addAddress(String address) {
-        addresses = (null == addresses) ? new ArrayList<>() : addresses;
+        addresses = (Objects.isNull(addresses)) ? new ArrayList<>() : addresses;
 
         addresses.add(address);
     }

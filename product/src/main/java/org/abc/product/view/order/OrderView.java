@@ -101,9 +101,10 @@ public class OrderView extends View {
         final String address = getAddress(ORDER_CONTROLLER.getAllAddresses(user.getId()), user);
         final PaymentMode paymentMode = getPaymentMode(user);
 
-        ORDER_CONTROLLER.addOrder(user.getId(), new Order.OrderBuilder(user.getId(), product.getId(), paymentMode)
-                .setAddress(address).setQuantity(productQuantity).setTotalAmount(productQuantity * product.getPrice())
-                .setProductName(product.toString()).setOrderStatus(OrderStatus.PLACED).build());
+        ORDER_CONTROLLER.addOrder(user.getId(), new Order.OrderBuilder(user.getId())
+                .setAddress(address).setQuantity(productQuantity).setTotalAmount((float) (productQuantity * product.getPrice()))
+                .setProductName(product.toString()).setOrderStatusId(OrderStatus.PLACED.getId()).setPaymentModeId(paymentMode.getId())
+                .setProductId(product.getId()).build());
         product.setQuantity(product.getQuantity() - productQuantity);
         LOGGER.info(String.format("User Id :%d Product Id :%d - Order placed successfully", user.getId(), product.getId()));
     }

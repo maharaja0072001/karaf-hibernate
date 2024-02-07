@@ -10,6 +10,9 @@ import org.abc.product.model.product.Laptop;
 import org.abc.product.model.product.Mobile;
 import org.abc.product.ProductCategory;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -28,6 +31,7 @@ public class CartDAOImpl implements CartDAO {
 
     private static CartDAOImpl cartDAO;
     private final Connection connection = DBConnection.getConnection();
+    private static final Logger LOGGER = LogManager.getLogger(CartDAOImpl.class);
 
     /**
      * <p>
@@ -66,6 +70,8 @@ public class CartDAOImpl implements CartDAO {
 
             return  updatedRows > 0;
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item is already in the cart", userId, productId));
+
             return false;
         }
     }
@@ -85,8 +91,10 @@ public class CartDAOImpl implements CartDAO {
             preparedStatement.setInt(1, userId);
             preparedStatement.setInt(2, productId);
             preparedStatement.executeUpdate();
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item removed from the cart", userId, productId));
 
         } catch (final SQLException exception) {
+            LOGGER.info(String.format("User id :%d Product Id :%d - Item can't be removed", userId, productId));
             throw new ItemRemovalFailedException(exception.getMessage());
         }
     }

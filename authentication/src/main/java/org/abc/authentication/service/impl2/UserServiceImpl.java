@@ -4,7 +4,6 @@ import org.abc.authentication.dao.impl.UserDAOImpl;
 import org.abc.authentication.dao.UserDAO;
 import org.abc.authentication.service.UserService;
 import org.abc.authentication.model.User;
-import org.abc.validation.Validator;
 
 import java.util.Objects;
 
@@ -63,9 +62,7 @@ public class UserServiceImpl implements UserService {
      */
     @Override
     public User getUser(final String emailIdOrMobileNumber, final String password) {
-        return (Validator.getInstance().isValidEmail(emailIdOrMobileNumber)
-                ? USER_DAO.getUser(emailIdOrMobileNumber, password, "select id, name, mobile_number, email, password from users where email=? and password=crypt(?,password)")
-                : USER_DAO.getUser(emailIdOrMobileNumber, password, "select id, name, mobile_number, email, password from users where mobile_number=? and password=crypt(?,password)"));
+        return USER_DAO.getUser(emailIdOrMobileNumber, password);
     }
 
     /**

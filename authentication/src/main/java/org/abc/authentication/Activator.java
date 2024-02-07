@@ -47,6 +47,7 @@ public class Activator implements BundleActivator {
         bean.setServiceBean(UserControllerREST.getInstance());
 
         server = bean.create();
+
         System.out.println("server created");
     }
 

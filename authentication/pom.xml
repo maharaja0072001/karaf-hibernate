@@ -67,7 +67,7 @@
                             org.abc.validation*, org.abc.singleton_scanner*, org.abc.pageview*,
                             org.abc.dbconnection*, org.abc.exception*, org.osgi.framework*,
                             com.fasterxml.jackson*, jakarta.validation*, org.hibernate.validator*,
-                            org.osgi.service*, org.apache.cxf*, javax.ws.rs*
+                            org.osgi.service*, org.apache.cxf*, javax.ws.rs*, org.apache.logging*,
                         </Import-Package>
                     </instructions>
                 </configuration>

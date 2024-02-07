@@ -48,7 +48,7 @@ public enum PaymentMode {
      * @param id Refers the id of the enum value.
      * @return the enum value.
      */
-    public static PaymentMode valueOf(int id) {
+    public static PaymentMode valueOf(final int id) {
         return EnumSet.allOf(PaymentMode.class)
                 .stream()
                 .filter(paymentMode -> paymentMode.id == id)

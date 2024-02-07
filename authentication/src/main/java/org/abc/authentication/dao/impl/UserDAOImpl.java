@@ -5,7 +5,12 @@ import org.abc.authentication.exceptions.UserNotFoundException;
 import org.abc.authentication.exceptions.UpdateActionFailedException;
 import org.abc.authentication.model.User;
 import org.abc.dbconnection.connection.DBConnection;
+import org.abc.validation.Validator;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,6 +27,8 @@ import java.util.Objects;
 public class UserDAOImpl implements UserDAO {
 
     private static UserDAOImpl userDAO;
+    private static final Logger LOGGER = LogManager.getLogger(UserDAOImpl.class);
+    private final Connection connection = DBConnection.getConnection();
 
     /**
      * <p>
@@ -51,7 +58,7 @@ public class UserDAOImpl implements UserDAO {
      */
     @Override
     public boolean createNewUser(final User user) {
-        try (PreparedStatement preparedStatement = DBConnection.getConnection().prepareStatement(String.join(" ", "insert into",
+        try (PreparedStatement preparedStatement = connection.prepareStatement(String.join(" ", "insert into",
                 "users(name, mobile_number, email, password) values(?, ?, ?, crypt(?,gen_salt('bf'))) returning id"))) {
             preparedStatement.setString(1, user.getName());
             preparedStatement.setString(2, user.getMobileNumber());
@@ -61,9 +68,12 @@ public class UserDAOImpl implements UserDAO {
 
             resultSet.next();
             user.setId(resultSet.getInt(1));
+            LOGGER.info("User account created successfully");
 
             return true;
         } catch (final SQLException exception) {
+            LOGGER.info("User account Already exists");
+
             return false;
         }
     }
@@ -75,17 +85,21 @@ public class UserDAOImpl implements UserDAO {
      *
      * @param emailIdOrMobileNumber Refers the mobile number or email id of the user
      * @param password Refers the password of the user.
-     * @param query Refers the query to be executed.
      * @return {@link User} if the credentials are correct or null otherwise.
      */
     @Override
-    public User getUser(final String emailIdOrMobileNumber, final String password, final String query) {
-        try (PreparedStatement preparedStatement = DBConnection.getConnection().prepareStatement(query)) {
+    public User getUser(final String emailIdOrMobileNumber, final String password) {
+        final String query = Validator.getInstance().isValidEmail(emailIdOrMobileNumber)
+                ? "select id, name, mobile_number, email, password from users where email=? and password=crypt(?,password)"
+                : "select id, name, mobile_number, email, password from users where mobile_number=? and password=crypt(?,password)";
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
             preparedStatement.setString(1, emailIdOrMobileNumber);
             preparedStatement.setString(2, password);
 
             return getUserObjectFromResultSet(preparedStatement.executeQuery());
         } catch (final SQLException exception) {
+            LOGGER.warn("User not found");
             throw new UserNotFoundException(exception.getMessage());
         }
     }
@@ -99,7 +113,7 @@ public class UserDAOImpl implements UserDAO {
      */
     @Override
     public void updateDetails(final User user) {
-        try (PreparedStatement preparedStatement = DBConnection.getConnection().prepareStatement(String.join(" ","update",
+        try (PreparedStatement preparedStatement = connection.prepareStatement(String.join(" ","update",
                 "users set name=? ,email=?, password=crypt(?,gen_salt('bf')), mobile_number=? where id =?"))) {
             preparedStatement.setString(1, user.getName());
             preparedStatement.setString(2, user.getEmailId());
@@ -107,7 +121,9 @@ public class UserDAOImpl implements UserDAO {
             preparedStatement.setString(4, user.getMobileNumber());
             preparedStatement.setInt(5, user.getId());
             preparedStatement.executeUpdate();
+            LOGGER.info(String.format("User : id - %d - User details updated", user.getId()));
         } catch (SQLException exception) {
+            LOGGER.warn(String.format("User update failed for the given id: %d", user.getId()));
             throw new UpdateActionFailedException(exception.getMessage());
         }
     }
@@ -122,12 +138,13 @@ public class UserDAOImpl implements UserDAO {
      */
     @Override
     public User getUserById(int userId) {
-        try (PreparedStatement preparedStatement = DBConnection.getConnection().prepareStatement(String.join(" ","select",
+        try (PreparedStatement preparedStatement = connection.prepareStatement(String.join(" ","select",
                 "id, name, mobile_number, email, password from users where id =?"))) {
             preparedStatement.setInt(1, userId);
 
             return getUserObjectFromResultSet(preparedStatement.executeQuery());
         } catch (final SQLException exception) {
+            LOGGER.warn(String.format("User not found for the given id: %d", userId));
             throw new UserNotFoundException(exception.getMessage());
         }
     }

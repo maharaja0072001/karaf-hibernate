@@ -4,11 +4,23 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.Transient;
+
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 
+import jakarta.validation.constraints.Size;
 import org.abc.product.OrderStatus;
 import org.abc.product.PaymentMode;
+import org.abc.product.validation.group.AddressChecker;
+import org.abc.product.validation.group.OrderChecker;
+import org.abc.product.validation.group.UserIdChecker;
+
+import static jakarta.persistence.GenerationType.IDENTITY;
 
 /**
  * <p>
@@ -18,19 +30,31 @@ import org.abc.product.PaymentMode;
  * @author Maharaja S
  * @version 1.0
  */
+@Entity(name = "orders")
 @JsonDeserialize(builder = Order.OrderBuilder.class)
 public class Order {
 
-    private final int id;
-    private final int userId;
-    private final int productId;
-    private final int quantity;
-    private final float totalAmount;
-    private final String address;
-    private final PaymentMode paymentMode;
-    private final String productName;
-    private OrderStatus orderStatus;
+    @Id
+    @GeneratedValue(strategy = IDENTITY)
+    private int id;
+    @Column(name = "user_id")
+    private int userId;
+    @Column(name = "product_id")
+    private int productId;
+    @Column(name = "quantity")
+    private int quantity;
+    @Column(name = "total_amount")
+    private float totalAmount;
+    @Column(length = 100)
+    private String address;
+    @Column(name = "payment_mode_id")
+    private int paymentModeId;
+    @Transient
+    private String productName;
+    @Column(name = "order_status_id")
+    private int orderStatusId;
 
+    public Order() {}
     private Order(final OrderBuilder orderBuilder) {
         this.productId = orderBuilder.productId;
         this.userId = orderBuilder.userId;
@@ -38,9 +62,9 @@ public class Order {
         this.quantity = orderBuilder.quantity;
         this.productName = orderBuilder.productName;
         this.totalAmount = orderBuilder.totalAmount;
-        this.paymentMode = orderBuilder.paymentMode;
+        this.paymentModeId = orderBuilder.paymentModeId;
         this.id = orderBuilder.id;
-        this.orderStatus = orderBuilder.orderStatus;
+        this.orderStatusId = orderBuilder.orderStatusId;
     }
 
     public int getId() {
@@ -67,60 +91,79 @@ public class Order {
         return address;
     }
 
-    public PaymentMode getPaymentMode() {
-        return paymentMode;
+    public int getPaymentModeId() {
+        return paymentModeId;
     }
 
-    public OrderStatus getOrderStatus() {
-        return orderStatus;
+    public int getOrderStatusId() {
+        return orderStatusId;
     }
 
-    public void setOrderStatus(final OrderStatus orderStatus) {
-        this.orderStatus = orderStatus;
+    public void setOrderStatusId(final int orderStatusId) {
+        this.orderStatusId = orderStatusId;
     }
 
     @Override
     public String toString() {
         return String.format("Order id : %d\n%s\nproduct quantity : %d\ntotal amount : %.2f\nPayment mode : %s\nShipping address : %s\nStatus : %s",
-                id, productName, quantity, totalAmount, paymentMode, address, orderStatus.toString());
+                id, productName, quantity, totalAmount, PaymentMode.valueOf(paymentModeId), address, OrderStatus.valueOf(orderStatusId));
     }
 
+    /**
+     * <p>
+     * Represents a static OrderBuilder class implement using builder design pattern which creates order instance.
+     * </p>
+     *
+     * @author Maharaja S
+     * @version 1.0
+     */
     public static class OrderBuilder {
 
-        @Positive(message = "Order id should be positive")
+        @Positive(message = "Order id should be positive", groups = OrderChecker.class)
         private int id;
-        @Positive(message = "User id should be positive")
+        @Positive(message = "User id should be positive", groups = UserIdChecker.class)
         private final int userId;
-        @Positive(message = "Product id should be positive")
-        private final int productId;
-        @Positive(message = "Order quantity should be positive")
+        @Positive(message = "Product id should be positive", groups = OrderChecker.class)
+        private int productId;
+        @Positive(message = "Order quantity should be positive", groups = OrderChecker.class)
         private int quantity;
-        @Positive(message = "Total amount should be positive")
+        @Positive(message = "Total amount should be positive", groups = OrderChecker.class)
         private float totalAmount;
-        @NotNull(message = "Address can't be null")
+        @NotNull(message = "Address can't be null", groups = AddressChecker.class)
+        @Size(min=10 , max = 100, groups = AddressChecker.class)
         private String address;
-        @NotNull(message = "Payment mode can't be null")
-        private final PaymentMode paymentMode;
-        @NotNull(message = "Product name can't be null")
+        @Positive(message = "Payment mode id can't be negative", groups = OrderChecker.class)
+        private int paymentModeId;
+        @NotNull(message = "Product name can't be null", groups = OrderChecker.class)
         private String productName;
-        @NotNull(message = "Order status can't be null")
-        private OrderStatus orderStatus;
-
-        @JsonCreator
-        public OrderBuilder(@JsonProperty("userId")final int userId,
-                            @JsonProperty("productId")final int productId,
-                            @JsonProperty("paymentMode")final PaymentMode paymentMode) {
-           this.userId = userId;
-           this.productId = productId;
-           this.paymentMode = paymentMode;
-        }
+        @Positive(message = "Order status id can't be negative", groups = OrderChecker.class)
+        private int orderStatusId;
 
         /**
          * Utilizes the builder pattern to construct the instance of {@link Order}.
          */
+        @JsonCreator
+        public OrderBuilder(@JsonProperty("userId")final int userId) {
+           this.userId = userId;
+        }
+
         @JsonProperty("address")
         public OrderBuilder setAddress(final String address) {
             this.address = address;
+
+            return this;
+        }
+
+        @JsonProperty("paymentMode")
+        public OrderBuilder setPaymentModeId(final int paymentModeId) {
+            this.paymentModeId = paymentModeId;
+
+            return this;
+        }
+
+        @JsonProperty("productId")
+        public OrderBuilder setProductId(final int productId) {
+            this.productId = productId;
 
             return this;
         }
@@ -154,8 +197,8 @@ public class Order {
         }
 
         @JsonProperty("orderStatus")
-        public OrderBuilder setOrderStatus(final OrderStatus orderStatus) {
-            this.orderStatus = orderStatus;
+        public OrderBuilder setOrderStatusId(final int orderStatusId) {
+            this.orderStatusId = orderStatusId;
 
             return this;
         }

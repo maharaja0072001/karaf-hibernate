@@ -5,14 +5,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.executable.ExecutableValidator;
 
-import org.abc.authentication.exceptions.MethodNotFoundException;
 import org.abc.authentication.model.User;
 import org.abc.authentication.service.UserService;
 import org.abc.authentication.service.impl2.UserServiceImpl;
+import org.abc.authentication.validation.groups.GetUserChecker;
+import org.abc.authentication.validation.groups.UserCreationChecks;
+import org.abc.authentication.validation.groups.UserLoginChecks;
+import org.abc.authentication.validation.groups.UserUpdateChecker;
 
 import org.hibernate.validator.HibernateValidator;
 import org.hibernate.validator.messageinterpolation.ParameterMessageInterpolator;
@@ -23,7 +23,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.GET;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.PUT;
 import javax.ws.rs.core.MediaType;
 
@@ -38,6 +37,7 @@ import java.util.Objects;
  * @version 1.0
  */
 @Path("/")
+@Produces(MediaType.APPLICATION_JSON)
 public class UserControllerREST {
 
     private static UserControllerREST userController;
@@ -45,8 +45,6 @@ public class UserControllerREST {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Validator validator = Validation.byProvider(HibernateValidator.class)
             .configure().messageInterpolator(new ParameterMessageInterpolator()).buildValidatorFactory().getValidator();
-//    private final ExecutableValidator executableValidator = Validation.buildDefaultValidatorFactory()
-//            .getValidator().forExecutables();
 
     /**
      * <p>
@@ -76,17 +74,22 @@ public class UserControllerREST {
      */
     @Path("/add")
     @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
     @POST
     public ObjectNode createUser(final User user) {
         final ObjectNode violationsInJson = objectMapper.createObjectNode();
 
-        validator.validate(user).stream().forEach(violation -> violationsInJson
+        validator.validate(user, UserCreationChecks.class).stream().forEach(violation -> violationsInJson
                 .put(violation.getPropertyPath().toString(), violation.getMessage()));
 
-        return violationsInJson.isEmpty()
-                ? objectMapper.createObjectNode().put("status", USER_SERVICE.createUser(user))
-                : violationsInJson;
+        final ObjectNode objectNode = objectMapper.createObjectNode();
+
+        if (violationsInJson.isEmpty()) {
+            return USER_SERVICE.createUser(user)
+                    ? objectNode.put("status", "user created successfully")
+                    : objectNode.put("status", "user already registered");
+        }
+
+        return violationsInJson;
     }
 
     /**
@@ -98,27 +101,34 @@ public class UserControllerREST {
      * @param password Refers the password of the user.
      * @return {@link User} if the credentials are correct and the user exists or null otherwise.
      */
-    @Path("/getUser")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Path("/getUser/{username}/{password}")
     @GET
-    public ObjectNode getUser(@FormParam("username")@NotNull final String emailIdOrMobileNumber,
-                              @FormParam("password")@NotNull final String password) {
+    public ObjectNode getUser(@PathParam("username") final String emailIdOrMobileNumber,
+                              @PathParam("password") final String password) {
+        final User user = new User();
 
-        final Object[] parameterValues = {emailIdOrMobileNumber, password};
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
+        if (emailIdOrMobileNumber.matches("\\d+")) {
+            user.setMobileNumber(emailIdOrMobileNumber);
+        } else {
+            user.setEmailId(emailIdOrMobileNumber);
+        }
+        user.setPassword(password);
+        final ObjectNode violationsInJson = validate(UserLoginChecks.class, user);
 
-//        try {
-//            executableValidator.validateParameters(this, this.getClass()
-//                            .getMethod("getUser", String.class, String.class), parameterValues)
-//                    .stream().forEach(violation -> violationsInJson
-//                            .put(violation.getPropertyPath().toString(), violation.getMessage()));
-//        } catch (NoSuchMethodException e) {
-//            throw new MethodNotFoundException(e.getMessage());
-//        }
+        if (violationsInJson.isEmpty()) {
+            final User retrievedUser = USER_SERVICE.getUser(emailIdOrMobileNumber, password);
+            ObjectNode objectNode = objectMapper.createObjectNode();
 
-        return  violationsInJson.isEmpty()
-                ? objectMapper.valueToTree(USER_SERVICE.getUser(emailIdOrMobileNumber, password))
-                : violationsInJson;
+            if (Objects.nonNull(retrievedUser)) {
+                objectNode.set("user", objectMapper.valueToTree(retrievedUser));
+            } else {
+                objectNode.put("status", "Wrong credentials");
+            }
+
+            return objectNode;
+        }
+
+        return violationsInJson;
     }
 
     /**
@@ -132,15 +142,12 @@ public class UserControllerREST {
     @Consumes(MediaType.APPLICATION_JSON)
     @PUT
     public ObjectNode updateDetails(final User user) {
-        final ObjectNode violationsInJson = objectMapper.createObjectNode();
-
-        validator.validate(user).stream().forEach(violation -> violationsInJson
-                .put(violation.getPropertyPath().toString(), violation.getMessage()));
+        final ObjectNode violationsInJson = validate(UserUpdateChecker.class, user);
 
         if (violationsInJson.isEmpty()) {
             USER_SERVICE.updateDetails(user);
 
-            return objectMapper.createObjectNode().put("status","Successfull");
+            return objectMapper.createObjectNode().put("status","update successful");
         } else {
             return  violationsInJson;
         }
@@ -155,16 +162,43 @@ public class UserControllerREST {
      * @return {@link User}.
      */
     @Path("/getById/{userId}")
-    @Produces(MediaType.APPLICATION_JSON)
     @GET
-    public ObjectNode getUserById(@PathParam("userId")@Positive final int userId) {
+    public ObjectNode getUserById(@PathParam("userId") final int userId) {
+        final User user = new User();
+
+        user.setId(userId);
+        final ObjectNode violationsInJson = validate(GetUserChecker.class, user);
+
+        if (violationsInJson.isEmpty()) {
+            final User retrievedUser = USER_SERVICE.getUserById(userId);
+            ObjectNode objectNode = objectMapper.createObjectNode();
+
+            if (Objects.nonNull(retrievedUser)) {
+                objectNode.set("user", objectMapper.valueToTree(retrievedUser));
+            } else {
+                objectNode.put("status", "User not found");
+            }
+
+            return objectNode;
+        }
+
+        return violationsInJson;
+    }
+
+    /**
+     * <p>
+     * Validates the object by the given group and returns object node containing the violations.
+     * </p>
+     * @param clazz Refers the group class.
+     * @param user Refers the {@link User}.
+     * @return the object node contains the violations.
+     */
+    private ObjectNode validate(final Class clazz, final User user) {
         final ObjectNode violationsInJson = objectMapper.createObjectNode();
 
-        validator.validate(userId).stream().forEach(violation -> violationsInJson
+        validator.validate(user, clazz).stream().forEach(violation -> violationsInJson
                 .put(violation.getPropertyPath().toString(), violation.getMessage()));
 
-        return violationsInJson.isEmpty()
-                ? objectMapper.valueToTree(USER_SERVICE.getUserById(userId))
-                : violationsInJson;
+        return violationsInJson;
     }
 }
